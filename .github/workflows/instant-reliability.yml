@@ -181,7 +181,7 @@ jobs:
           "$(cat "$RUNNER_TEMP/test-binary")" real_app --ignored --test-threads=1 --nocapture
 
       - name: Upload sandboxes
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: instant-reliability-sandboxes
