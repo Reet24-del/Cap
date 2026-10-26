@@ -43,6 +43,11 @@ jobs:
       - name: Build
         shell: bash
         run: scripts/verify/run.sh fast --no-run
+      - name: Prepare recorded fixtures
+        shell: bash
+        env:
+          CAP_VERIFY_TIER: fast
+        run: scripts/verify/run.sh fast --prepare-fixtures
       - name: Loop
         shell: bash
         run: |
