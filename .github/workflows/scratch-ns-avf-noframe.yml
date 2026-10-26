@@ -1,0 +1,68 @@
+name: scratch ns avf noframe
+
+# Nightshift probe (never merge): loops the macOS FAST playback suite on the
+# runner class where AVAssetReader playback requests time out on main, with
+# decoder tracing, to capture the timeline around a missed 2 s deadline.
+
+on:
+  push:
+    branches: [scratch/ns-avf-noframe]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  RUST_BACKTRACE: "1"
+  CAP_VERIFY_CARGO_PROFILE: ci-verify
+  CAP_VERIFY_NEXTEST_PROFILE: ci
+  CAP_VERIFY_LOCKED: "1"
+  CAP_VERIFY_REQUIRE_SUPPORTED: "1"
+  CAP_VERIFY_HOST: blacksmith
+  CAP_VERIFY_LOG: cap_rendering::decoder=debug,cap_video_decode=debug
+
+jobs:
+  loop:
+    name: loop ${{ matrix.shard }}
+    runs-on: blacksmith-6vcpu-macos-15
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Setup
+        uses: ./.github/actions/engine-verify-setup
+        with:
+          target: aarch64-apple-darwin
+          tier: fast
+      - name: Build
+        shell: bash
+        run: scripts/verify/run.sh fast --suites playback --no-run
+      - name: Loop
+        shell: bash
+        run: |
+          fails=0
+          for i in $(seq 1 12); do
+            export CAP_VERIFY_REPORT_DIR="$RUNNER_TEMP/report/iter-$i"
+            export CAP_VERIFY_FLAKY_FILE="$CAP_VERIFY_REPORT_DIR/flaky.txt"
+            mkdir -p "$CAP_VERIFY_REPORT_DIR"
+            start=$(date +%s)
+            if scripts/verify/run.sh fast --suites playback > "$CAP_VERIFY_REPORT_DIR/run.log" 2>&1; then rc=0; else rc=$?; fi
+            end=$(date +%s)
+            n=$(grep -c 'decoders returned no frame' "$CAP_VERIFY_REPORT_DIR/run.log" || true)
+            echo "iter $i rc=$rc secs=$((end-start)) noframe_lines=$n"
+            if [ "$rc" != 0 ] || [ "$n" != 0 ]; then fails=$((fails+1)); cp "$CAP_VERIFY_REPORT_DIR/run.log" "$RUNNER_TEMP/report/fail-$i.log"; fi
+            grep -v ' DEBUG ' "$CAP_VERIFY_REPORT_DIR/run.log" | grep -E 'FAIL|FLAKY|timed out|stopped returning|switching to software' | head -20 || true
+          done
+          echo "failing iterations: $fails" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: ns-avf-${{ matrix.shard }}
+          path: ${{ runner.temp }}/report
+          retention-days: 7
