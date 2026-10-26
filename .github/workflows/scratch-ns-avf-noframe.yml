@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: |
           fails=0
-          for i in $(seq 1 3); do
+          for i in $(seq 1 4); do
             export CAP_VERIFY_REPORT_DIR="$RUNNER_TEMP/report/iter-$i"
             export CAP_VERIFY_FLAKY_FILE="$CAP_VERIFY_REPORT_DIR/flaky.txt"
             mkdir -p "$CAP_VERIFY_REPORT_DIR"
@@ -62,11 +62,14 @@ jobs:
             n=$(grep -c 'decoders returned no frame' "$CAP_VERIFY_REPORT_DIR/run.log" || true)
             echo "iter $i rc=$rc secs=$((end-start)) noframe_lines=$n"
             if [ "$rc" != 0 ] || [ "$n" != 0 ]; then fails=$((fails+1)); cp "$CAP_VERIFY_REPORT_DIR/run.log" "$RUNNER_TEMP/report/fail-$i.log"; fi
+            set +e +o pipefail
             echo "--- after iter $i: top CPU processes, cap/verify process count, disk"
             ps -axo pid,ppid,etime,%cpu,rss,comm | sort -k4 -nr | head -15
             ps -axo comm | grep -ciE 'cap|verify|crash|chaos|recorder' || true
             ps -axo pid,ppid,etime,%cpu,comm | grep -iE 'cap-|verify|crash-|chaos-|recorder|VTDecoder|VTEncoder|mediaserverd' | grep -v grep | head -30 || true
             df -h "$RUNNER_TEMP" | tail -1
+            vm_stat | head -8
+            set -e -o pipefail
             grep -v ' DEBUG ' "$CAP_VERIFY_REPORT_DIR/run.log" | grep -E 'FAIL|FLAKY|timed out|stopped returning|switching to software' | head -20 || true
           done
           echo "failing iterations: $fails" >> "$GITHUB_STEP_SUMMARY"
