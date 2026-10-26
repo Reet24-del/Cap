@@ -19,13 +19,13 @@ env:
   CAP_VERIFY_NEXTEST_PROFILE: ci
   CAP_VERIFY_LOCKED: "1"
   CAP_VERIFY_REQUIRE_SUPPORTED: "1"
-  CAP_VERIFY_HOST: blacksmith
+  CAP_VERIFY_HOST: github-hosted
   CAP_VERIFY_LOG: cap_rendering::decoder=debug,cap_video_decode=debug
 
 jobs:
   loop:
     name: loop ${{ matrix.shard }}
-    runs-on: blacksmith-6vcpu-macos-15
+    runs-on: macos-15
     timeout-minutes: 90
     strategy:
       fail-fast: false
