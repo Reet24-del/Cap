@@ -26,7 +26,7 @@ jobs:
   loop:
     name: loop ${{ matrix.shard }}
     runs-on: blacksmith-6vcpu-macos-15
-    timeout-minutes: 75
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -42,17 +42,17 @@ jobs:
           tier: fast
       - name: Build
         shell: bash
-        run: scripts/verify/run.sh fast --suites playback --no-run
+        run: scripts/verify/run.sh fast --no-run
       - name: Loop
         shell: bash
         run: |
           fails=0
-          for i in $(seq 1 12); do
+          for i in $(seq 1 4); do
             export CAP_VERIFY_REPORT_DIR="$RUNNER_TEMP/report/iter-$i"
             export CAP_VERIFY_FLAKY_FILE="$CAP_VERIFY_REPORT_DIR/flaky.txt"
             mkdir -p "$CAP_VERIFY_REPORT_DIR"
             start=$(date +%s)
-            if scripts/verify/run.sh fast --suites playback > "$CAP_VERIFY_REPORT_DIR/run.log" 2>&1; then rc=0; else rc=$?; fi
+            if scripts/verify/run.sh fast > "$CAP_VERIFY_REPORT_DIR/run.log" 2>&1; then rc=0; else rc=$?; fi
             end=$(date +%s)
             n=$(grep -c 'decoders returned no frame' "$CAP_VERIFY_REPORT_DIR/run.log" || true)
             echo "iter $i rc=$rc secs=$((end-start)) noframe_lines=$n"
